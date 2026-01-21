@@ -41,7 +41,7 @@ ThaiSignLaTranslator/
    ```
 3. **รันแอป**
    ```bash
-   python app.py   # หรือ streamlit run app.py หากใช้ Streamlit
+   python app.py  
    ```
    เปิดเว็บเบราว์เซอร์ที่ `http://localhost:5000` (หรือพอร์ตที่แสดงในคอนโซล)
 
