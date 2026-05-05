@@ -28,7 +28,7 @@ ThaiSignLaTranslator/
 ```
 
 ### วิธีติดตั้งและใช้งาน
-1. **คล cloning โครงการ**
+1. **cloning โครงการ**
    ```bash
    git clone https://github.com/Nawattakorn/ThaiSignLaTranslator.git
    cd ThaiSignLaTranslator
