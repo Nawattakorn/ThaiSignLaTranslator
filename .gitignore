@@ -4,3 +4,4 @@ __pycache__/
 *.pyd
 .ipynb_checkpoints/
 code-model/__pycache__/
+code-model/Logs/
