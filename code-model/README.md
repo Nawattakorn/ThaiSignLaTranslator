@@ -1,3 +1,13 @@
+---
+title: Thai Sign Language Translator
+emoji: 🤟
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ระบบตรวจจับและแปลภาษามือไทย | Thai Sign Language Detection System
 
 ระบบปัญญาประดิษฐ์สำหรับการตรวจจับและแปลภาษามือไทยแบบเรียลไทม์ พัฒนาด้วย Python, Flask, TensorFlow และ MediaPipe
