@@ -1,5 +1,13 @@
+# Monkey patch protobuf for compatibility with newer versions
+from google.protobuf.symbol_database import SymbolDatabase
+from google.protobuf.message_factory import MessageFactory
+from google.protobuf import message_factory
+SymbolDatabase.GetPrototype = lambda self, descriptor: message_factory.GetMessageClass(descriptor)
+MessageFactory.GetPrototype = lambda self, descriptor: message_factory.GetMessageClass(descriptor)
+
 from flask import Flask, render_template, Response, request, jsonify
 import cv2
+import os
 import numpy as np
 import mediapipe as mp
 from tensorflow.keras.models import load_model
@@ -13,7 +21,7 @@ fontpath = "angsana.ttc"  # ฟอนต์ภาษาไทย
 font = ImageFont.truetype(fontpath, 48)
 
 # รายการท่าทาง
-actions = ['กลับ', 'ขอบคุณ', 'คุณสบายดีไหม', 'ช่วย', 'เชื่อ', 'แนะนำ', 'พา', 'รอ', 'สวัสดี', 'อะไร']
+actions = ['กลับ', 'ขอบคุณ', 'ช่วย', 'เชื่อ', 'แนะนำ', 'พา', 'รอ', 'สวัสดี', 'อะไร']
 
 # MediaPipe setup
 mp_holistic = mp.solutions.holistic
@@ -34,27 +42,30 @@ def mediapipe_detection(image, model):
     return cv2.cvtColor(image, cv2.COLOR_RGB2BGR), results
 
 def draw_styled_landmarks(image, results):
-    mp_drawing.draw_landmarks(image, results.face_landmarks, mp_holistic.FACEMESH_CONTOURS)
+    # ปิดการวาดจุดมาร์กบนใบหน้าตามต้องการ
+    # mp_drawing.draw_landmarks(image, results.face_landmarks, mp_holistic.FACEMESH_CONTOURS)
     mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
     mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
     mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
 
 def extract_keypoints(results):
     pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results.pose_landmarks.landmark]) if results.pose_landmarks else np.zeros((33, 4))
-    face = np.array([[res.x, res.y, res.z] for res in results.face_landmarks.landmark]) if results.face_landmarks else np.zeros((468, 3))
     lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]) if results.left_hand_landmarks else np.zeros((21, 3))
     rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]) if results.right_hand_landmarks else np.zeros((21, 3))
-    return np.concatenate([pose.flatten(), face.flatten(), lh.flatten(), rh.flatten()])
+    return np.concatenate([pose.flatten(), lh.flatten(), rh.flatten()])
 
 def gen():
-    cap = cv2.VideoCapture(1)  # เปลี่ยนเป็น 0 สำหรับกล้องหลัก
+    cap = cv2.VideoCapture(0)  # ใช้กล้องรอง index 1 ตามต้องการ
+        
     global sequence, prediction, is_detecting, current_prediction, confidence_score
 
+    frame_count = 0
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
         while is_detecting:
             ret, frame = cap.read()
             if not ret:
                 break
+            frame_count += 1
 
             image, results = mediapipe_detection(frame, holistic)
             draw_styled_landmarks(image, results)
@@ -63,11 +74,11 @@ def gen():
             sequence.append(keypoints)
             sequence = sequence[-30:]
 
-            action_text = ""
-            confidence = 0.0
+            action_text = current_prediction
+            confidence = confidence_score
 
-            if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
+            if len(sequence) == 30 and frame_count % 3 == 0:
+                res = model.predict(np.expand_dims(sequence, axis=0), verbose=0)[0]
                 prediction.append(np.argmax(res))
 
                 if np.unique(prediction[-10:])[0] == np.argmax(res):
@@ -93,9 +104,26 @@ def gen():
 
     cap.release()
 
+def load_video_links():
+    links = {}
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), 'linkvideo.txt')
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if ':' in line:
+                    parts = line.split(':', 1)
+                    action = parts[0].strip()
+                    url = parts[1].strip()
+                    links[action] = url
+        print("LOADED VIDEO LINKS:", links)
+    except Exception as e:
+        print("Error loading video links:", e)
+    return links
+
 @app.route('/')
 def index():
-    return render_template('index.html', actions=actions)
+    video_links = load_video_links()
+    return render_template('index.html', actions=actions, video_links=video_links)
 
 @app.route('/video')
 def video():
@@ -121,4 +149,4 @@ def get_prediction():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=7860)
